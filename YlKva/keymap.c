@@ -51,6 +51,12 @@ const key_override_t **key_overrides = (const key_override_t *[]){
 	NULL
 };
 
+// Used to extract the basic tapping keycode from a dual-role key.
+// Example: GET_TAP_KC(MT(MOD_RSFT, KC_E)) == KC_E
+#define GET_TAP_KC(dual_role_key) dual_role_key & 0xFF
+uint16_t last_keycode = KC_NO;
+uint8_t last_modifier = 0;
+
 // Initialize variables holding the bitfield
 // representation of active modifiers.
 uint8_t mod_state;
