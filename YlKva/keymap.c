@@ -120,7 +120,18 @@ void process_repeat_key(uint16_t keycode, const keyrecord_t *record) {
 
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+  switch (keycode) {
+    case MAC_DND:
+      HSS(0x9B);
 
+    case RGB_SLD:
+      if (record->event.pressed) {
+        rgblight_mode(1);
+      }
+      return false;
+  }
+
+  
 
   /////
   // CUSTOM QMK
@@ -138,16 +149,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 
 
-  switch (keycode) {
-    case MAC_DND:
-      HSS(0x9B);
-
-    case RGB_SLD:
-      if (record->event.pressed) {
-        rgblight_mode(1);
-      }
-      return false;
-  }
   return true;
 }
 
