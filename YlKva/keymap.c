@@ -6,6 +6,7 @@
 enum custom_keycodes {
   RGB_SLD = ML_SAFE_RANGE,
   MAC_DND,
+  REPT = SAFE_RANGE,
 };
 
 
@@ -21,7 +22,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_GRAVE,       KC_Q,           KC_W,           KC_F,           KC_P,           KC_B,                                           KC_J,           KC_L,           KC_U,           KC_Y,           KC_SCLN,        KC_EQUAL,       
     KC_TAB,         MT(MOD_LSFT, KC_A),MT(MOD_LCTL, KC_R),MT(MOD_LALT, KC_S),MT(MOD_LGUI, KC_T),KC_G,                                           KC_M,           MT(MOD_RGUI, KC_N),MT(MOD_RALT, KC_E),MT(MOD_RCTL, KC_I),MT(MOD_RSFT, KC_O),KC_LBRC,        
     KC_QUOTE,       KC_Z,           KC_X,           KC_C,           KC_D,           KC_V,                                           KC_K,           KC_H,           KC_COMMA,       KC_DOT,         TD(DANCE_0),    KC_RBRC,        
-                                                    KC_LEFT_SHIFT,  KC_ENTER,                                       KC_BSPC,        KC_SPACE
+                                                    REPT,           KC_ENTER,                                       KC_BSPC,        KC_SPACE
   ),
   [1] = LAYOUT_voyager(
     KC_TRANSPARENT, KC_F14,         KC_F15,         KC_TRANSPARENT, KC_TRANSPARENT, KC_TRANSPARENT,                                 KC_TRANSPARENT, MAC_DND,        KC_AUDIO_MUTE,  KC_AUDIO_VOL_DOWN,KC_AUDIO_VOL_UP,KC_TRANSPARENT, 
@@ -35,8 +36,102 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 
 
+/////
+// CUSTOM QMK
+/////
+
+
+
+// Custom QMK here
+const key_override_t delete_key_override = 
+    ko_make_basic(MOD_MASK_SHIFT, KC_BSPC, KC_DEL);
+
+const key_override_t **key_overrides = (const key_override_t *[]){
+	&delete_key_override,
+	NULL
+};
+
+// Initialize variables holding the bitfield
+// representation of active modifiers.
+uint8_t mod_state;
+uint8_t oneshot_mod_state;
+
+//? TODO: look into using the QMK-provided repeat key.
+//? Since the docs state that it effectively has the same
+//? function has hitting the last key, my assumption is
+//? that it doesn't actually skip layer taps
+void process_repeat_key(uint16_t keycode, const keyrecord_t *record) {
+    if (keycode != REPT) {
+        // Early return when pressing a pure layer key
+        // to retain modifiers
+        switch (keycode) {
+            case QK_DEF_LAYER ... QK_DEF_LAYER_MAX:
+            case QK_MOMENTARY ... QK_MOMENTARY_MAX:
+            case QK_LAYER_MOD ... QK_LAYER_MOD_MAX:
+            case QK_ONE_SHOT_LAYER ... QK_ONE_SHOT_LAYER_MAX:
+            case QK_TOGGLE_LAYER ... QK_TOGGLE_LAYER_MAX:
+            case QK_TO ... QK_TO_MAX:
+            case QK_LAYER_TAP_TOGGLE ... QK_LAYER_TAP_TOGGLE_MAX:
+            case KC_LSFT:
+            case KC_RSFT:
+                return;
+        }
+
+        // apply existing modifiers
+        last_modifier = oneshot_mod_state > mod_state ? oneshot_mod_state : mod_state;
+
+        // process additional keys pressed in different layers
+        switch (keycode) {
+            case QK_LAYER_TAP ... QK_LAYER_TAP_MAX:
+            case QK_MOD_TAP ... QK_MOD_TAP_MAX:
+                if (record->event.pressed) {
+                    last_keycode = GET_TAP_KC(keycode);
+                }
+                break;
+            default:
+                if (record->event.pressed) {
+                    last_keycode = keycode;
+                }
+                break;
+        }
+    } else { // keycode == REPT
+        if (record->event.pressed) {
+            register_mods(last_modifier);
+            register_code16(last_keycode);
+        } else {
+            unregister_code16(last_keycode);
+            unregister_mods(last_modifier);
+        }
+    }
+}
+
+/////
+// END CUSTOM QMK
+/////
+
+
+
+
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+
+
+  /////
+  // CUSTOM QMK
+  /////
+  process_repeat_key(keycode, record);
+
+  // It's important to update the mod variables *after* calling process_repeat_key, or else
+  // only a single modifier from the previous key is repeated (e.g. Ctrl+Shift+T then Repeat produces Shift+T)
+  mod_state = get_mods();
+  oneshot_mod_state = get_oneshot_mods();
+
+  /////
+  // END CUSTOM QMK
+  /////
+
+
+
   switch (keycode) {
     case MAC_DND:
       HSS(0x9B);
@@ -118,3 +213,4 @@ void dance_0_reset(tap_dance_state_t *state, void *user_data) {
 tap_dance_action_t tap_dance_actions[] = {
         [DANCE_0] = ACTION_TAP_DANCE_FN_ADVANCED(on_dance_0, dance_0_finished, dance_0_reset),
 };
+
